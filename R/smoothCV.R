@@ -106,14 +106,16 @@ smooth.acc<-function(smoothresult,againstself=T,testset){
   if(againstself){
     metrics<-smoothresult[[1]][,.(
       "MSE"=mean((Data-forc)^2,na.rm=T),
-      "MAPE"=mean(abs((Data-forc)/forc),na.rm=T)*100
+      "MAPE"=mean(abs((Data-forc)/forc),na.rm=T)*100,
+      "MAE"=mean(abs(Data-forc))
     )]
   }else{
     bound<-smoothresult[[3]]
     metrics<-smoothresult[[2]][
       ,test:=testset[1:bound]][
         ,.("MSE"=mean((forc-test)^2),
-           "MAPE"=mean(abs((forc-test)/test))*100
+           "MAPE"=mean(abs((forc-test)/test))*100,
+           "MAE"=mean(abs(forc-test))
     )]
   }
   return(metrics)
@@ -142,12 +144,13 @@ MA.Grid<-function(trainset,testset,start=2,end,dist=1,nahead,type){
     if(type=="SMA"){
     params<-data.table(M=Ms,
                        MSE=numeric(length(Ms)),
-                       MAPE=numeric(length(Ms))
+                       MAPE=numeric(length(Ms)),
+                       MAE=numeric(length(Ms))
     )
 
     for(i in seq(1:(length(Ms)))){
       set(params,i,
-          c("MSE","MAPE"),
+          c("MSE","MAPE","MAE"),
           smooth.acc(smoothresult = sma.dt(trainset,start+dist*(i-1),nahead=nahead),
                      againstself  = F,
                      testset))
@@ -155,11 +158,12 @@ MA.Grid<-function(trainset,testset,start=2,end,dist=1,nahead,type){
     }}else if (type=="DMA"){
       params<-data.table(M=Ms,
                          MSE=numeric(length(Ms)),
-                         MAPE=numeric(length(Ms))
+                         MAPE=numeric(length(Ms)),
+                         MAE=numeric(length(Ms))
       )
       for(i in seq(1:(length(Ms)))){
         set(params,i,
-            c("MSE","MAPE"),
+            c("MSE","MAPE","MAE"),
             smooth.acc(smoothresult  = dma.dt(trainset,start+dist*(i-1),nahead=nahead),
                        againstself   = F,
                        testset))
@@ -189,11 +193,13 @@ ES.grid<-function(type,alphrange,betarange,nahead,trainset,testset){
   if(type=="SES"){
     params<-data.table(alpha=alphrange)
     params[,`:=`(MSE=numeric(length(alphrange)),
-                MAPE=numeric(length(alphrange)))]
+                MAPE=numeric(length(alphrange)),
+                MAE=numeric(length(alphrange))
+    )]
 
     for(i in seq(1:length(alphrange))){
       set(params,i,
-          c("MSE","MAPE"),
+          c("MSE","MAPE","MAE"),
           smooth.acc(esWrapper(smoothing = HoltWinters(trainset,
                                                        alpha=params[[1]][i],
                                                        beta=F, gamma=F),
@@ -204,12 +210,13 @@ ES.grid<-function(type,alphrange,betarange,nahead,trainset,testset){
   }else if (type=="DES"){
     params<-CJ(alphrange,betarange)
     params[,`:=`(MSE=numeric(nrow(params)),
-                MAPE=numeric(nrow(params))
+                MAPE=numeric(nrow(params)),
+                MAE=numeric(nrow(params))
                 )]
 
     for(i in seq(1:(length(alphrange)*length(betarange)))){
       set(params,i,
-          c("MSE","MAPE"),
+          c("MSE","MAPE","MAE"),
           smooth.acc(esWrapper(smoothing = HoltWinters(trainset,
                                                        alpha=params[[1]][i],
                                                        beta=params[[2]][i],
