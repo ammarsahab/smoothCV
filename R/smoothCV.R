@@ -12,12 +12,14 @@
 #' @examples
 #' dma.dt(crudenow$close,5,nahead=10)
 
-
 dma.dt<-function(trainset,m,nahead=0){
-  if(typeof(trainset)=="double"){
+  if(typeof(trainset)=="double" | typeof(trainset)=="integer"){
     trainset<-data.table("Data"=trainset)
   }else{
     setnames(trainset,names(trainset)[1],"Data")}
+  if(!is.data.table(trainset)){
+    trainset<-as.data.table(trainset)
+  }
   smoothed<-trainset[,sma:=SMA(Data,n=m)
   ][,dma:=SMA(sma,n=m)
   ][,`:=`(At=2*sma-dma,
@@ -45,10 +47,13 @@ dma.dt<-function(trainset,m,nahead=0){
 
 
 sma.dt<-function(trainset,m,nahead=0){
-  if(typeof(trainset)=="double"){
+  if(typeof(trainset)=="double" | typeof(trainset)=="integer"){
     trainset<-data.table("Data"=trainset)
   }else{
     setnames(trainset,names(trainset)[1],"Data")}
+  if(!is.data.table(trainset)){
+    trainset<-as.data.table(trainset)
+  }
   smoothed<-trainset[,sma:=SMA(Data,n=m)
   ][,forc:=shift(sma,type="lag")]
 
