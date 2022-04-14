@@ -1,7 +1,7 @@
 Package: smoothCV
 Type: Package
 Title: Wrappers and parameter optimization for time series smoothing methods
-Version: 0.1.1
+Version: 0.1.2
 Author: Muhammad Ammar Sahab
 Maintainer: Muhammad Ammar Sahab <mammarsahab3@gmail.com>
 Description: Function wrappers for some common time series smoothing methods 

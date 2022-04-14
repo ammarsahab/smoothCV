@@ -78,12 +78,12 @@ sma.dt<-function(trainset,m,nahead=0){
 
 esWrapper<-function(trainset,smoothing,nahead=0){
   smoothed<-data.table("Data"     = trainset,
-                       "Smoothed" = smoothing[[1]][1],
-                       "Level"    = smoothing[[1]][2],
+                       "Smoothed" = smoothing[[1]][,1],
+                       "Level"    = smoothing[[1]][,2],
                        "Trend"    = ifelse(smoothing[[4]],
-                                           smoothing[[1]][3],0),
+                                           smoothing[[1]][,3],0),
                        "Seasonal" = ifelse(smoothing[[5]],
-                                           smoothing[[1]][4],0))
+                                           smoothing[[1]][,4],0))
 
   forecast<-data.table(forc = predict(smoothing,nahead))
   setnames(forecast,names(forecast)[1],"forc")
