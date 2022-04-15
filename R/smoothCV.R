@@ -77,13 +77,16 @@ sma.dt<-function(trainset,m,nahead=0){
 
 
 esWrapper<-function(trainset,smoothing,nahead=0){
+  lagfactor<-ceiling(smoothing[[3]])+ceiling(smoothing[[4]])+ceiling(smoothing[[5]])
   smoothed<-data.table("Data"     = trainset,
-                       "Smoothed" = smoothing[[1]][,1],
-                       "Level"    = smoothing[[1]][,2],
+                       "Smoothed" = c(rep(NA,lagfactor),smoothing[[1]][,1]),
+                       "Level"    = c(rep(NA,lagfactor),smoothing[[1]][,2]),
                        "Trend"    = ifelse(smoothing[[4]],
-                                           smoothing[[1]][,3],0),
+                                           c(rep(NA,lagfactor),smoothing[[1]][,3]),
+                                           0),
                        "Seasonal" = ifelse(smoothing[[5]],
-                                           smoothing[[1]][,4],0))
+                                           c(rep(NA,lagfactor),smoothing[[1]][,3]),
+                                           0))
 
   forecast<-data.table(forc = predict(smoothing,nahead))
   setnames(forecast,names(forecast)[1],"forc")
@@ -247,8 +250,9 @@ return(params)
 #' or less than or equal to the length of the training set divided by two for DMA.
 #' @param dist (if type="SMA" or type="DMA") Distance between successive values for m.
 #' The vector of m values will be constructed as \code{seq(start,end,dist)}.
+#' @param localoptim Whether to optimize in each training set. If true, a range for paramter values do not need to be provided
 #' @param alphrange (if type="SES" or type="DES") A vector of parameters for the level component. Can be created using \code{seq}, or by manually specifying a vector.
-#' @param betarange (if type="SES" or type="DES") A vector of parameters for the trend component. Can be created using \code{seq}, or by manually specifying a vector.
+#' @param betarange (if type="DES") A vector of parameters for the trend component. Can be created using \code{seq}, or by manually specifying a vector.
 #' Not used if type="SES"
 #' @return A data.table containing all parameter combinations during each iteration (fold) with their respective MSE and MAPE values.
 #' Can be grouped by parameter values to obtain the mean error for each parameter value.
@@ -259,7 +263,8 @@ return(params)
 #' start=2, end=30, dist=3)
 
 fcCV<-function(fullset, initialn, folds, type,
-               start, end, dist, alphrange, betarange){
+               start, end, dist, localoptim=F,
+               alphrange, betarange){
   trainset<-fullset[1:initialn]
 
   if(typeof(fullset)=="double"){
@@ -282,6 +287,7 @@ fcCV<-function(fullset, initialn, folds, type,
   epoints <-rep(NA,folds)
 
   if(type=="SMA"){
+
     for(i in seq(1:folds)){
       spoints[i]<-teststart
       epoints[i]<-testend
@@ -289,15 +295,18 @@ fcCV<-function(fullset, initialn, folds, type,
 
       teststart<-teststart+lenfold
       if((testend+lenfold)<=setlength){
-        testend<-testend+lenfold
+          testend<-testend+lenfold
+
       }else{
         testend<-setlength
+
       }
       trainset<-fullset[1:(teststart-1)]
       testset<-fullset[(teststart):(testend)]
     }
     npiter<-length(seq(start,end,dist))
   }else if(type=="DMA"){
+
     for(i in seq(1:folds)){
       spoints[i]<-teststart
       epoints[i]<-testend
@@ -306,14 +315,19 @@ fcCV<-function(fullset, initialn, folds, type,
       teststart<-teststart+lenfold
       if((testend+lenfold)<=setlength){
         testend<-testend+lenfold
+
       }else{
         testend<-setlength
+
       }
       trainset<-fullset[1:(teststart-1)]
       testset<-fullset[(teststart):(testend)]
     }
     npiter<-length(seq(start,end,dist))
   }else if(type=="SES"){
+
+    if(localoptim==F){
+
       for(i in seq(1:folds)){
         spoints[i]<-teststart
         epoints[i]<-testend
@@ -333,8 +347,30 @@ fcCV<-function(fullset, initialn, folds, type,
         testset<-fullset[(teststart):(testend)]
       }
     npiter<-length(alphrange)
-    }else{
+    }else if(localoptim==T){
+
       for(i in seq(1:folds)){
+        spoints[i]<-teststart
+        epoints[i]<-testend
+        CVres[[i]]<-smooth.acc(HoltWinters(trainset, beta=F,gamma=F),
+                             againstself = F, testset)
+
+        teststart<-teststart+lenfold
+        if((testend+lenfold)<=setlength){
+          testend<-testend+lenfold
+        }else{
+          testend<-setlength
+        }
+        trainset<-fullset[1:(teststart-1)]
+        testset<-fullset[(teststart):(testend)]
+      }
+      npiter<-folds
+    }
+  }else{
+
+      if(localoptim==F){
+
+        for(i in seq(1:folds)){
         spoints[i]<-teststart
         epoints[i]<-testend
         CVres[[i]]<-ES.grid(type="DES",
@@ -353,7 +389,26 @@ fcCV<-function(fullset, initialn, folds, type,
         testset<-fullset[(teststart):(testend)]
       }
       npiter<-length(alphrange)*length(betarange)
+    }else if(localoptim==T){
+
+        for(i in seq(1:folds)){
+        spoints[i]<-teststart
+        epoints[i]<-testend
+        CVres[[i]]<-smooth.acc(HoltWinters(trainset,gamma=F),
+                               againstself = F, testset)
+
+        teststart<-teststart+lenfold
+        if((testend+lenfold)<=setlength){
+          testend<-testend+lenfold
+        }else{
+          testend<-setlength
+        }
+        trainset<-fullset[1:(teststart-1)]
+        testset<-fullset[(teststart):(testend)]
+      }
+      npiter<-folds
     }
+  }
   CVres<-rbindlist(CVres)
   CVres[,iter:=rep(seq(1:folds),each=npiter)]
   return(list(spoints,epoints,CVres))
