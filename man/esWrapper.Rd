@@ -2,7 +2,7 @@
 % Please edit documentation in R/smoothCV.R
 \name{esWrapper}
 \alias{esWrapper}
-\title{esWrapper}
+\title{Function wrapper for exponential smoothing.}
 \usage{
 esWrapper(trainset, smoothing, nahead = 0)
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/smoothCV.R
 \name{ES.grid}
 \alias{ES.grid}
-\title{ES.Grid}
+\title{Grid search for exponential smoothing}
 \usage{
 ES.grid(type, alphrange, betarange, nahead, trainset, testset)
 }
@@ -25,7 +25,7 @@ A data.table containing all combinations of alpha and beta with their respective
 }
 \description{
 Grid search for exponential smoothing to find optimal parameters that minimizes errors
-with respect to a certain test set.
+with respect to a certain test set. Only implemented for non-seasonal exponential smoothing
 }
 \examples{
 ES.Grid(type="SES", alphrange=seq(0.01,1,0.01), betarange=NA, nahead=12, crudenow$Close, crudetest$Close)

@@ -2,7 +2,7 @@
 % Please edit documentation in R/smoothCV.R
 \name{MA.Grid}
 \alias{MA.Grid}
-\title{MA.Grid}
+\title{Grid search for single and double moving average}
 \usage{
 MA.Grid(trainset, testset, start = 2, end, dist = 1, nahead, type)
 }
@@ -27,8 +27,8 @@ The vector of m values will be constructed as \code{seq(start,end,dist)}.}
 A data.table containing tested values of m, with MSE and MAPE for each value.
 }
 \description{
-Grid search for single and double moving averages to find optimal parameters that minimize errors
-with respect to a certain test set.
+Grid search for single and double moving averages to find optimal window value that minimize errors
+with respect to a certain test set. Iterates across given range of window values.
 }
 \examples{
 MA.Grid(crudenow$Close, crudetest$Close, start=1, end=30, dist=2, nahead=12, type="SMA")

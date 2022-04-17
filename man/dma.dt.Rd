@@ -2,7 +2,7 @@
 % Please edit documentation in R/smoothCV.R
 \name{dma.dt}
 \alias{dma.dt}
-\title{dma.dt}
+\title{Function wrapper for double moving averages.}
 \usage{
 dma.dt(trainset, m, nahead = 0)
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/smoothCV.R
 \name{smooth.acc}
 \alias{smooth.acc}
-\title{smooth.acc}
+\title{Accuracy measures for smoothing results.}
 \usage{
 smooth.acc(smoothresult, againstself = T, testset)
 }
@@ -17,7 +17,7 @@ smooth.acc(smoothresult, againstself = T, testset)
 A data.table containing MSE and MAPE of the inputted smoothing method.
 }
 \description{
-Accuracy measures for results of certain smoothing methods.
+Accuracy measures for smoothing results.
 }
 \examples{
 smooth.acc(sma.dt(crudenow$close,5,nahead=10), againstself=F, crudetest$close)

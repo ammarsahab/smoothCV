@@ -2,7 +2,7 @@
 % Please edit documentation in R/smoothCV.R
 \name{sma.dt}
 \alias{sma.dt}
-\title{sma.dt}
+\title{Function wrapper for single moving averages.}
 \usage{
 sma.dt(trainset, m, nahead = 0)
 }

@@ -1,6 +1,6 @@
 
 #' Function wrapper for double moving averages.
-#' 
+#'
 #' @param trainset A set of univariate time series data. Can be a vector (type double) or a data.table.
 #' @param m Number of most recent observations where the moving average will be taken at each point in time.
 #' Should be less than or equal to the length of training set divided by 2.
@@ -32,7 +32,7 @@ dma.dt<-function(trainset,m,nahead=0){
 }
 
 #' Function wrapper for single moving averages.
-#' 
+#'
 #' @param trainset A set of univariate time series data. Can be a vector (type double) or a data.table.
 #' @param m Number of most recent observations where the moving average will be taken at each point in time.
 #' Should be less than or equal to the length of training set.
@@ -62,7 +62,7 @@ sma.dt<-function(trainset,m,nahead=0){
 }
 
 #' Function wrapper for exponential smoothing.
-#' 
+#'
 #' @param trainset A set of univariate time series data. Can be a vector (type double) or a data.table.
 #' @param smoothing An object of class \code{HoltWinters}
 #' @param nahead Number of observations to predict.
@@ -91,7 +91,7 @@ esWrapper<-function(trainset,smoothing,nahead=0){
 }
 
 #' Accuracy measures for smoothing results.
-#' 
+#'
 #' @param smoothresult An object from the output of \code{dma.dt}, \code{sma.dt}, or \code{esWrapper}
 #' @param againstself Whether to test forecast accuracy against the training set or a testing set
 #' @param testset  A set of univariate time series data. Can be a vector (type double) or a data.table.
@@ -245,16 +245,16 @@ return(params)
 #' or less than or equal to the length of the training set divided by two for DMA.
 #' @param dist (if type="SMA" or type="DMA") Distance between successive values for m.
 #' The vector of m values will be constructed as \code{seq(start,end,dist)}.
-#' @param localoptim Whether to optimize in each training set. If true, a range for paramter values do not need to be provided
+#' @param localoptim Whether to optimize in each training set. If true, a range for paramter values will not need to be provided
 #' @param alphrange (if type="SES" or type="DES") A vector of parameters for the level component. Can be created using \code{seq}, or by manually specifying a vector.
 #' @param betarange (if type="DES") A vector of parameters for the trend component. Can be created using \code{seq}, or by manually specifying a vector.
 #' Not used if type="SES"
 #' @return A data.table containing all parameter combinations during each iteration (fold) with their respective MSE and MAPE values.
 #' Can be grouped by parameter values to obtain the mean error for each parameter value.
 #' @examples
-#' fcCV(fullset=crudenow$Close, initialn=36, folds=12, type="DES",
+#' fcCV(fullset=crudenow$Close, initialn=36, folds=12, type="DES", localoptim=F,
 #' alphrange=seq(0.1,1,0.1), betarange=seq(0.1,1,0.1))
-#' fcCV(fullset=crudenow$Close, initialn=36, folds=12, type="SMA",
+#' fcCV(fullset=crudenow$Close, initialn=36, folds=12, type="SMA", localoptim=F,
 #' start=2, end=30, dist=3)
 
 fcCV<-function(fullset, initialn, folds, type,
@@ -332,7 +332,7 @@ fcCV<-function(fullset, initialn, folds, type,
                             nrow(testset),
                             trainset,testset)
 
-        
+
         teststart<-teststart+lenfold
         if((testend+lenfold)<=setlength){
           testend<-testend+lenfold
@@ -357,7 +357,7 @@ fcCV<-function(fullset, initialn, folds, type,
             smooth.acc(esWrapper(smoothing = smoothing,trainset=trainset,
                                  nahead= nrow(testset)),
                        againstself=F, testset))
-        
+
         teststart<-teststart+lenfold
         if((testend+lenfold)<=setlength){
           testend<-testend+lenfold
@@ -407,7 +407,7 @@ fcCV<-function(fullset, initialn, folds, type,
             smooth.acc(esWrapper(smoothing = smoothing,trainset=trainset,
                                  nahead=nrow(testset)),
                        againstself=F, testset))
-        
+
         teststart<-teststart+lenfold
         if((testend+lenfold)<=setlength){
           testend<-testend+lenfold
@@ -425,3 +425,397 @@ fcCV<-function(fullset, initialn, folds, type,
   return(list(spoints,epoints,CVres))
 }
 
+
+#' Rolling block cross validation
+#'
+#' The algorithm starts by splitting all observations into k folds.
+#' Specified portions of the fold will be split into training and test sets.
+#' Grid search is then committed using MA.Grid or ES.Grid.
+#' This occurs in all k folds.
+#' @param fullset  A set of univariate time series data. Can be a vector (type double) or a data.table.
+#' @param folds Number of folds to divide the rest of the data into.
+#' @param trainsplit Proportion of observations to be used as training set in each fold.
+#' The remaining observations will automatically be allocated to the test set.
+#' @param type Type of smoothing. Can be \code{"SMA"}, \code{"DMA"}, \code{"SES"}, \code{"DES"}.
+#' @param start (if type="SMA" or type="DMA") Starting value for m (see \code{sma.dt} and \code{dma.dt}).
+#' @param end (if type="SMA" or type="DMA") Maximum value for m.
+#' Must be less than or equal to the length of the training set for SMA,
+#' or less than or equal to the length of the training set divided by two for DMA.
+#' @param dist (if type="SMA" or type="DMA") Distance between successive values for m.
+#' The vector of m values will be constructed as \code{seq(start,end,dist)}.
+#' @param localoptim Whether to optimize in each training set.
+#' If true, there is no need to provide values for alpha and beta..
+#' @param alphrange (if type="SES" or type="DES") A vector of parameters for the level component.
+#' Can be created using \code{seq}, or by manually specifying a vector.
+#' @param betarange (if type="DES") A vector of parameters for the trend component.
+#' Can be created using \code{seq}, or by manually specifying a vector.
+#' Not used if type="SES"
+#' @return A data.table containing all parameter combinations during each iteration (fold) with their respective MSE and MAPE values.
+#' Can be grouped by parameter values to obtain the mean error for each parameter value.
+#' @examples
+#' fcCV(fullset=crudenow$Close, initialn=36, folds=12, type="DES", localoptim=F,
+#' alphrange=seq(0.1,1,0.1), betarange=seq(0.1,1,0.1))
+#' fcCV(fullset=crudenow$Close, initialn=36, folds=12, type="SMA", localoptim=F,
+#' start=2, end=30, dist=3)
+
+rbCV<-function(fullset, trainsplit, folds, type,
+               start, end, dist, localoptim=F,
+               alphrange, betarange){
+  if(typeof(fullset)=="double"){
+    setlength<-length(fullset)
+
+    fullset<-data.table("Data"=fullset)
+  }else{
+    setlength<-nrow(fullset)
+
+    setnames(fullset,names(fullset)[1],"Data")}
+
+  foldsize<-ceiling(nrow(fullset)/folds)
+
+  foldstart<-1
+  foldend<-1+foldsize
+
+  CVres <- vector(mode='list', length = folds)
+  foldloc <- vector(mode='list', length = folds)
+  trainloc <-vector(mode='list', length = folds)
+  testloc <- vector(mode='list', length = folds)
+
+  if(type=="SMA"){
+
+    for(i in seq(1:folds)){
+      trainend<- foldstart+ceiling(trainsplit*(foldend-foldstart))
+      trainset<-fullset[foldstart:trainend]
+      testset<- fullset[(trainend+1):foldend]
+
+      foldloc[[i]]<-c(foldstart,foldend)
+      trainloc[[i]]<-c(foldstart,trainend)
+      testloc[[i]]<-c((trainend+1),foldend)
+      CVres[[i]]<-MA.Grid(trainset,testset,start,end,dist,nrow(testset),type="SMA")
+
+      foldstart<-foldend+1
+      if((foldstart+foldsize)<=setlength){
+        foldend<-foldstart+foldsize
+
+      }else{
+        foldend<-setlength
+
+      }
+    }
+    npiter<-length(seq(start,end,dist))
+  }else if(type=="DMA"){
+
+    for(i in seq(1:folds)){
+      trainend<- foldstart+ceiling(trainsplit*(foldend-foldstart))
+      trainset<-fullset[foldstart:trainend]
+      testset<- fullset[(trainend+1):foldend]
+
+      foldloc[[i]]<-c(foldstart,foldend)
+      trainloc[[i]]<-c(foldstart,trainend)
+      testloc[[i]]<-c((trainend+1),foldend)
+      CVres[[i]]<-MA.Grid(trainset,testset,start,end,dist,nrow(testset),type="DMA")
+
+      foldstart<-foldend+1
+      if((foldstart+foldsize)<=setlength){
+        foldend<-foldstart+foldsize
+
+      }else{
+        foldend<-setlength
+
+      }
+    }
+    npiter<-length(seq(start,end,dist))
+  }else if(type=="SES"){
+
+    if(localoptim==F){
+
+      for(i in seq(1:folds)){
+        trainend<- foldstart+ceiling(trainsplit*(foldend-foldstart))
+        trainset<-fullset[foldstart:trainend]
+        testset<- fullset[(trainend+1):foldend]
+
+        foldloc[[i]]<-c(foldstart,foldend)
+        trainloc[[i]]<-c(foldstart,trainend)
+        testloc[[i]]<-c((trainend+1),foldend)
+
+        CVres[[i]]<-ES.grid(type="SES",
+                            alphrange=alphrange,
+                            betarange=NA,
+                            nrow(testset),
+                            trainset,testset)
+
+
+        foldstart<-foldend+1
+        if((foldstart+foldsize)<=setlength){
+          foldend<-foldstart+foldsize
+
+        }else{
+          foldend<-setlength
+
+        }
+      }
+      npiter<-length(alphrange)
+    }else if(localoptim==T){
+
+      for(i in seq(1:folds)){
+        trainend<- foldstart+ceiling(trainsplit*(foldend-foldstart))
+        trainset<-fullset[foldstart:trainend]
+        testset<- fullset[(trainend+1):foldend]
+
+        foldloc[[i]]<-c(foldstart,foldend)
+        trainloc[[i]]<-c(foldstart,trainend)
+        testloc[[i]]<-c((trainend+1),foldend)
+
+        smoothing<- HoltWinters(trainset,beta=F,gamma=F)
+        CVres[[i]]<-data.table(alpha=smoothing[[3]],
+                               MSE=numeric(1),
+                               MAPE=numeric(1),
+                               MAE=numeric(1))
+
+        set(CVres[[i]],1L,c("MSE","MAPE","MAE"),
+            smooth.acc(esWrapper(smoothing = smoothing,trainset=trainset,
+                                 nahead= nrow(testset)),
+                       againstself=F, testset))
+
+        foldstart<-foldend+1
+        if((foldstart+foldsize)<=setlength){
+          foldend<-foldstart+foldsize
+
+        }else{
+          foldend<-setlength
+
+        }
+      }
+      npiter<-1
+    }
+  }else{
+
+    if(localoptim==F){
+
+      for(i in seq(1:folds)){
+        trainend<- foldstart+ceiling(trainsplit*(foldend-foldstart))
+        trainset<-fullset[foldstart:trainend]
+        testset<- fullset[(trainend+1):foldend]
+
+        foldloc[[i]]<-c(foldstart,foldend)
+        trainloc[[i]]<-c(foldstart,trainend)
+        testloc[[i]]<-c((trainend+1),foldend)
+
+        CVres[[i]]<-ES.grid(type="DES",
+                            alphrange=alphrange,
+                            betarange=betarange,
+                            nrow(testset),
+                            trainset,testset)
+
+        foldstart<-foldend+1
+        if((foldstart+foldsize)<=setlength){
+          foldend<-foldstart+foldsize
+
+        }else{
+          foldend<-setlength
+
+        }
+      }
+      npiter<-length(alphrange)*length(betarange)
+    }else if(localoptim==T){
+
+      for(i in seq(1:folds)){
+        trainend<- foldstart+ceiling(trainsplit*(foldend-foldstart))
+        trainset<-fullset[foldstart:trainend]
+        testset<- fullset[(trainend+1):foldend]
+
+        foldloc[[i]]<-c(foldstart,foldend)
+        trainloc[[i]]<-c(foldstart,trainend)
+        testloc[[i]]<-c((trainend+1),foldend)
+
+        smoothing<- HoltWinters(trainset,gamma=F)
+        CVres[[i]]<-data.table(alpha=smoothing[[3]],
+                               beta=smoothing[[4]],
+                               MSE=numeric(1),
+                               MAPE=numeric(1),
+                               MAE=numeric(1))
+
+        set(CVres[[i]],1L,c("MSE","MAPE","MAE"),
+            smooth.acc(esWrapper(smoothing = smoothing,trainset=trainset,
+                                 nahead=nrow(testset)),
+                       againstself=F, testset))
+
+        foldstart<-foldend+1
+        if((foldstart+foldsize)<=setlength){
+          foldend<-foldstart+foldsize
+
+        }else{
+          foldend<-setlength
+
+        }
+      }
+      npiter<-1
+    }
+  }
+  CVres<-rbindlist(CVres)
+  CVres[,iter:=rep(seq(1:folds),each=npiter)]
+  return(list(foldloc,trainloc,testloc,CVres))
+}
+
+#' Repeated holdout cross-validation
+#'
+#' The method splits the data into a training set, a testing set, and a set which will be split into
+#' training and testing portions based on a random number generator.
+#' Grid search, or optimization, is then committed for k iterations
+#' @param fullset  A set of univariate time series data. Can be a vector (type double) or a data.table.
+#' @param iter Number of repetitions
+#' @param trainsplit Proportion of observations to be used as training set
+#' @param randsplit Proportion of observations in the set with uncertain membership.
+#' Will be split into training and testing proportions.
+#' @param type Type of smoothing. Can be \code{"SMA"}, \code{"DMA"}, \code{"SES"}, \code{"DES"}.
+#' @param start (if type="SMA" or type="DMA") Starting value for m (see \code{sma.dt} and \code{dma.dt}).
+#' @param end (if type="SMA" or type="DMA") Maximum value for m.
+#' Must be less than or equal to the length of the training set for SMA,
+#' or less than or equal to the length of the training set divided by two for DMA.
+#' @param dist (if type="SMA" or type="DMA") Distance between successive values for m.
+#' The vector of m values will be constructed as \code{seq(start,end,dist)}.
+#' @param localoptim Whether to optimize in each training set.
+#' If true, there is no need to provide values for alpha and beta..
+#' @param alphrange (if type="SES" or type="DES") A vector of parameters for the level component.
+#' Can be created using \code{seq}, or by manually specifying a vector.
+#' @param betarange (if type="DES") A vector of parameters for the trend component.
+#' Can be created using \code{seq}, or by manually specifying a vector.
+#' Not used if type="SES"
+#' @return A data.table containing all parameter combinations during each iteration (fold) with their respective MSE and MAPE values.
+#' Can be grouped by parameter values to obtain the mean error for each parameter value.
+#' @examples
+#' fcCV(fullset=crudenow$Close, initialn=36, folds=12, type="DES", localoptim=F,
+#' alphrange=seq(0.1,1,0.1), betarange=seq(0.1,1,0.1))
+#' fcCV(fullset=crudenow$Close, initialn=36, folds=12, type="SMA", localoptim=F,
+#' start=2, end=30, dist=3)
+
+rhCV<-function(fullset, trainsplit, randsplit, iter, type,
+               start, end, dist, localoptim=F,
+               alphrange, betarange){
+
+  if(typeof(fullset)=="double"){
+    setlength<-length(fullset)
+
+    fullset<-data.table("Data"=fullset)
+  }else{
+    setlength<-nrow(fullset)
+
+    setnames(fullset,names(fullset)[1],"Data")}
+  CVres <- vector(mode='list', length = folds)
+  foldloc <- vector(mode='list', length = folds)
+
+  randstart<-ceiling(trainsplit*setlength)
+  randend<-ceiling((trainsplit+randsplit)*setlength)
+
+  if(type=="SMA"){
+
+    for(i in seq(1:iter)){
+      trainend<-round(runif(1,min=randstart, max=randend))
+      trainset<-fullset[1:trainend]
+      testset<- fullset[(trainend+1):setlength]
+
+      foldloc[[i]]<-c(1,trainend,trainend+1,setlength)
+      CVres[[i]]<-MA.Grid(trainset,testset,start,end,dist,nrow(testset),type="SMA")
+      }
+    npiter<-length(seq(start,end,dist))
+  }else if(type=="DMA"){
+
+    for(i in seq(1:iter)){
+      trainend<-round(runif(1,min=randstart, max=randend))
+      trainset<-fullset[1:trainend]
+      testset<- fullset[(trainend+1):setlength]
+
+      foldloc[[i]]<-c(1,trainend,trainend+1,setlength)
+
+      CVres[[i]]<-MA.Grid(trainset,testset,start,end,dist,nrow(testset),type="DMA")
+    }
+    npiter<-length(seq(start,end,dist))
+
+  }else if(type=="SES"){
+
+    if(localoptim==F){
+
+      for(i in seq(1:iter)){
+        trainend<-round(runif(1,min=randstart, max=randend))
+        trainset<-fullset[1:trainend]
+        testset<- fullset[(trainend+1):setlength]
+
+        foldloc[[i]]<-c(1,trainend,trainend+1,setlength)
+
+        CVres[[i]]<-ES.grid(type="SES",
+                            alphrange=alphrange,
+                            betarange=NA,
+                            nrow(testset),
+                            trainset,testset)
+      }
+      npiter<-length(alphrange)
+    }else if(localoptim==T){
+
+      for(i in seq(1:iter)){
+        trainend<-round(runif(1,min=randstart, max=randend))
+        trainset<-fullset[1:trainend]
+        testset<- fullset[(trainend+1):setlength]
+
+        foldloc[[i]]<-c(1,trainend,trainend+1,setlength)
+
+        smoothing<- HoltWinters(trainset,beta=F,gamma=F)
+        CVres[[i]]<-data.table(alpha=smoothing[[3]],
+                               MSE=numeric(1),
+                               MAPE=numeric(1),
+                               MAE=numeric(1))
+
+        set(CVres[[i]],1L,c("MSE","MAPE","MAE"),
+            smooth.acc(esWrapper(smoothing = smoothing,trainset=trainset,
+                                 nahead= nrow(testset)),
+                       againstself=F, testset))
+
+      }
+      npiter<-1
+    }
+  }else{
+
+    if(localoptim==F){
+
+      for(i in seq(1:iter)){
+        trainend<-round(runif(1,min=randstart, max=randend))
+        trainset<-fullset[1:trainend]
+        testset<- fullset[(trainend+1):setlength]
+
+        foldloc[[i]]<-c(1,trainend,trainend+1,setlength)
+
+        CVres[[i]]<-ES.grid(type="DES",
+                            alphrange=alphrange,
+                            betarange=betarange,
+                            nrow(testset),
+                            trainset,testset)
+
+      }
+      npiter<-length(alphrange)*length(betarange)
+    }else if(localoptim==T){
+
+      for(i in seq(1:iter)){
+        trainend<-round(runif(1,min=randstart, max=randend))
+        trainset<-fullset[1:trainend]
+        testset<- fullset[(trainend+1):setlength]
+
+        foldloc[[i]]<-c(1,trainend,trainend+1,setlength)
+
+        smoothing<- HoltWinters(trainset,gamma=F)
+        CVres[[i]]<-data.table(alpha=smoothing[[3]],
+                               beta=smoothing[[4]],
+                               MSE=numeric(1),
+                               MAPE=numeric(1),
+                               MAE=numeric(1))
+
+        set(CVres[[i]],1L,c("MSE","MAPE","MAE"),
+            smooth.acc(esWrapper(smoothing = smoothing,trainset=trainset,
+                                 nahead=nrow(testset)),
+                       againstself=F, testset))
+
+      }
+      npiter<-1
+    }
+  }
+  CVres<-rbindlist(CVres)
+  CVres[,iter:=rep(seq(1:iter),each=npiter)]
+  return(list(foldloc,CVres))
+}
