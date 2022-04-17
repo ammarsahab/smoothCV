@@ -1,7 +1,6 @@
 
-#' dma.dt
-#'
 #' Function wrapper for double moving averages.
+#' 
 #' @param trainset A set of univariate time series data. Can be a vector (type double) or a data.table.
 #' @param m Number of most recent observations where the moving average will be taken at each point in time.
 #' Should be less than or equal to the length of training set divided by 2.
@@ -32,9 +31,8 @@ dma.dt<-function(trainset,m,nahead=0){
   return(list(smoothed,forecast,nahead))
 }
 
-#' sma.dt
-#'
 #' Function wrapper for single moving averages.
+#' 
 #' @param trainset A set of univariate time series data. Can be a vector (type double) or a data.table.
 #' @param m Number of most recent observations where the moving average will be taken at each point in time.
 #' Should be less than or equal to the length of training set.
@@ -63,9 +61,8 @@ sma.dt<-function(trainset,m,nahead=0){
   return(list(smoothed,forecast,nahead))
 }
 
-#' esWrapper
-#'
 #' Function wrapper for exponential smoothing.
+#' 
 #' @param trainset A set of univariate time series data. Can be a vector (type double) or a data.table.
 #' @param smoothing An object of class \code{HoltWinters}
 #' @param nahead Number of observations to predict.
@@ -93,9 +90,8 @@ esWrapper<-function(trainset,smoothing,nahead=0){
   return(list(smoothed,forecast,nahead))
 }
 
-#' smooth.acc
-#'
-#' Accuracy measures for results of certain smoothing methods.
+#' Accuracy measures for smoothing results.
+#' 
 #' @param smoothresult An object from the output of \code{dma.dt}, \code{sma.dt}, or \code{esWrapper}
 #' @param againstself Whether to test forecast accuracy against the training set or a testing set
 #' @param testset  A set of univariate time series data. Can be a vector (type double) or a data.table.
@@ -124,10 +120,10 @@ smooth.acc<-function(smoothresult,againstself=T,testset){
   return(metrics)
 }
 
-#' MA.Grid
+#' Grid search for single and double moving average
 #'
-#' Grid search for single and double moving averages to find optimal parameters that minimize errors
-#' with respect to a certain test set.
+#' Grid search for single and double moving averages to find optimal window value that minimize errors
+#' with respect to a certain test set. Iterates across given range of window values.
 #' @param trainset A set of univariate time series data. Can be a vector (type double) or a data.table.
 #' @param testset Same as above.
 #' @param start Starting value for m (see \code{sma.dt} and \code{dma.dt}).
@@ -176,10 +172,10 @@ MA.Grid<-function(trainset,testset,start=2,end,dist=1,nahead,type){
 return(params)
 }
 
-#' ES.Grid
+#' Grid search for exponential smoothing
 #'
 #' Grid search for exponential smoothing to find optimal parameters that minimizes errors
-#' with respect to a certain test set.
+#' with respect to a certain test set. Only implemented for non-seasonal exponential smoothing
 #' @param type Type of moving average. Can be \code{"SES"} or \code{"DES"}
 #' @param nahead Number of observations to forecast.
 #' @param alphrange A vector of parameters for the level component. Can be created using \code{seq}, or by manually specifying a vector.
@@ -233,9 +229,8 @@ ES.grid<-function(type,alphrange,betarange,nahead,trainset,testset){
 return(params)
 }
 
-#' fcCV
+#' Forward chaining cross validation
 #'
-#' Forward chaining cross validation for SMA, DMA, SES, and DES.
 #' The algorithm starts by picking a number of observations as the initial training set.
 #' The remaining observations will be split into k folds. The first fold will be used as the initial test set.
 #' Grid search is then committed using MA.Grid or ES.Grid.
@@ -337,6 +332,7 @@ fcCV<-function(fullset, initialn, folds, type,
                             nrow(testset),
                             trainset,testset)
 
+        
         teststart<-teststart+lenfold
         if((testend+lenfold)<=setlength){
           testend<-testend+lenfold
@@ -352,9 +348,16 @@ fcCV<-function(fullset, initialn, folds, type,
       for(i in seq(1:folds)){
         spoints[i]<-teststart
         epoints[i]<-testend
-        CVres[[i]]<-smooth.acc(HoltWinters(trainset, beta=F,gamma=F),
-                             againstself = F, testset)
-
+        smoothing<- HoltWinters(trainset,beta=F,gamma=F)
+        CVres[[i]]<-data.table(alpha=smoothing[[3]],
+                               MSE=numeric(1),
+                                MAPE=numeric(1),
+                                MAE=numeric(1))
+        set(CVres[[i]],1L,c("MSE","MAPE","MAE"),
+            smooth.acc(esWrapper(smoothing = smoothing,trainset=trainset,
+                                 nahead= nrow(testset)),
+                       againstself=F, testset))
+        
         teststart<-teststart+lenfold
         if((testend+lenfold)<=setlength){
           testend<-testend+lenfold
@@ -364,7 +367,7 @@ fcCV<-function(fullset, initialn, folds, type,
         trainset<-fullset[1:(teststart-1)]
         testset<-fullset[(teststart):(testend)]
       }
-      npiter<-folds
+      npiter<-1
     }
   }else{
 
@@ -394,9 +397,17 @@ fcCV<-function(fullset, initialn, folds, type,
         for(i in seq(1:folds)){
         spoints[i]<-teststart
         epoints[i]<-testend
-        CVres[[i]]<-smooth.acc(HoltWinters(trainset,gamma=F),
-                               againstself = F, testset)
-
+        smoothing<- HoltWinters(trainset,gamma=F)
+        CVres[[i]]<-data.table(alpha=smoothing[[3]],
+                               beta=smoothing[[4]],
+                               MSE=numeric(1),
+                               MAPE=numeric(1),
+                               MAE=numeric(1))
+        set(CVres[[i]],1L,c("MSE","MAPE","MAE"),
+            smooth.acc(esWrapper(smoothing = smoothing,trainset=trainset,
+                                 nahead=nrow(testset)),
+                       againstself=F, testset))
+        
         teststart<-teststart+lenfold
         if((testend+lenfold)<=setlength){
           testend<-testend+lenfold
@@ -406,10 +417,11 @@ fcCV<-function(fullset, initialn, folds, type,
         trainset<-fullset[1:(teststart-1)]
         testset<-fullset[(teststart):(testend)]
       }
-      npiter<-folds
+      npiter<-1
     }
   }
   CVres<-rbindlist(CVres)
   CVres[,iter:=rep(seq(1:folds),each=npiter)]
   return(list(spoints,epoints,CVres))
 }
+
